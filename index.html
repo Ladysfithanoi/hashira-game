@@ -183,6 +183,7 @@ body.phone{min-height:100dvh}
 .ptm{text-align:center;margin-top:12px;font-family:var(--d);font-weight:900;font-size:28px}
 .pf{display:flex;justify-content:space-between;align-items:center;padding:10px max(16px,env(safe-area-inset-right,0px)) max(14px,env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px));max-width:560px;margin:0 auto}
 .mem{display:block;margin-top:3px;font-size:12px;font-weight:800;color:var(--gold,#e7b54c);white-space:normal;line-height:1.3}
+.ib.danger{border-color:rgba(255,90,95,.55);color:#ff8a8d}.ib.danger[data-armed="1"]{background:#c62f35;color:#fff;border-color:#c62f35}
 </style></head><body>
 <div id="app"></div>
 <div id="toast" hidden role="status"></div>
@@ -2743,6 +2744,11 @@ const actions = {
   pick: (el) => pickAns(Number(el.dataset.c)),
   risk: (el) => pickRisk(el.dataset.v),
   team: (el) => joinTeam(el.dataset.k),
+  closeRoom: (el) => { if (el.dataset.armed !== "1") { el.dataset.armed = "1"; el.textContent = "Bấm lần nữa để đóng"; setTimeout(() => { el.dataset.armed = ""; el.textContent = "Đóng phòng"; }, 3000); return; }
+    writeState({ ph: "closed" });
+    setTimeout(() => { TEAMS.forEach((t) => pub("t/" + t.k, null)); Object.keys(MEM).forEach((id) => pub("m/" + id, null)); }, 2500);
+    setTimeout(() => { pub("state", null); LS("dv-room", null); location.hash = "host"; location.reload(); }, 4000); },
+  regate: () => { location.hash = ""; location.reload(); },
   leave: () => { if (NET.room) pub("m/" + pid, null); LS("dv-team", null); P.team = ""; render(true); },
   fs: () => { const p = document.documentElement.requestFullscreen?.(); if (p?.catch) p.catch(() => {}); },
   snd: () => { Snd.on = !Snd.on; LS("dv-snd", Snd.on ? "1" : "0"); if (Snd.on) Snd.go(); render(true); },
@@ -2829,10 +2835,11 @@ function hostHead(C) {
   const oxyLeft = Math.max(0, OXY - (ST.oxy || 0)), mm = Math.floor(oxyLeft / 60), ss = String(oxyLeft % 60).padStart(2, "0");
   return `<header class="hh"><div class="brand"><span class="kj">神</span><div><b>Thám Hiểm Cự Thần</b><small>The Hashira Project · Thức 1 Squat</small></div></div>
    <div class="meters"><div class="m"><span>Oxy</span><div class="bar"><i style="width:${(oxyLeft / OXY) * 100}%"></i></div><b class="num">${mm}:${ss}</b></div><div class="m"><span>Nghiên cứu chung</span><div class="bar gold"><i style="width:${pct(C)}%"></i></div><b class="num">${pct(C)}%</b></div></div>
-   <div class="hc"><span id="net" class="net">Đang kết nối…</span><button class="ib" type="button" data-a="snd">${Snd.on ? "Âm thanh: bật" : "Âm thanh: tắt"}</button><button class="ib" type="button" data-a="fs">Toàn màn hình</button></div></header>`;
+   <div class="hc"><span id="net" class="net">Đang kết nối…</span><button class="ib danger" type="button" data-a="closeRoom">Đóng phòng</button><button class="ib" type="button" data-a="snd">${Snd.on ? "Âm thanh: bật" : "Âm thanh: tắt"}</button><button class="ib" type="button" data-a="fs">Toàn màn hình</button></div></header>`;
 }
 function picks(si, c) { const ts = activeTeams().filter((t) => ansOf(t.k, si)?.c === c); return ts.length ? `<span class="pk">${ts.map((t, i) => `<i style="--tc:${t.c};--i:${i}" title="${esc(t.n)}">${t.kj[0]}</i>`).join("")}</span>` : ""; }
 function hostView() {
+  if (ST.ph === "closed") return ["closed", `<div class="ph center"><div class="spin"></div><p>Đang đóng phòng và mở phòng mới…</p></div>`];
   const C = calc(), si = ST.si, st = STEPS[si] || {}, z = ZONES[st.zi] || {};
   let stage = "", key = ST.gid + ":" + ST.ph + ":" + si, ctl = "";
   if (ST.ph === "lobby") {
@@ -2884,6 +2891,8 @@ function hostView() {
 function phoneView() {
   if (!NET.room) return ["gate", ""];
   if (!ST) return ["wait0", `<div class="ph center"><div class="spin"></div><p>Đang kết nối phòng ${esc(NET.room)}…</p><span id="net" class="net"></span></div>`];
+  if (ST.ph === "closed") { if (P.team || LS("dv-team")) { LS("dv-team", null); P.team = ""; } try { history.replaceState(null, "", location.pathname + location.search); } catch (e) {}
+    return ["closed", `<div class="ph center"><div class="big">神</div><h2>Phòng đã đóng</h2><p class="muted">Người tổ chức đã kết thúc phòng ${esc(NET.room)}. Cảm ơn bạn đã tham gia!</p><button class="go" type="button" data-a="regate">Vào phòng khác</button></div>`]; }
   const t = TK[P.team];
   if (!t) return ["pick:" + ST.gid, `<div class="ph"><div class="eyebrow">Phòng ${esc(NET.room)} · Thám Hiểm Cự Thần</div><h1>Chọn đội của bạn</h1><label for="pname" style="display:block;font-weight:800;margin:10px 0 6px">Tên của bạn</label><input id="pname" maxlength="24" autocomplete="off" placeholder="VD: Lan" value="${esc(P.name)}" style="width:100%;box-sizing:border-box;padding:12px 14px;border-radius:10px;border:1px solid var(--line);background:var(--card);color:var(--ink);font:700 16px var(--f)"><p class="muted">Nhiều người có thể vào cùng một đội. Người bấm đầu tiên sẽ chốt đáp án cho cả đội, nên hãy bàn nhau trước khi bấm.</p><p class="muted" hidden>Mỗi đội dùng 1 điện thoại để trả lời.</p><div class="pick">${TEAMS.map((x) => { const used = gidOK(x.k) && TD[x.k].on;
     return `<button type="button" data-a="team" data-k="${x.k}" style="--tc:${x.c}"><span class="tk">${x.kj}</span><b>${esc(x.n)}</b><small>${esc(x.b)}${used ? " · đã có đồng đội" : ""}</small></button>`; }).join("")}</div><span id="net" class="net"></span></div>`];
