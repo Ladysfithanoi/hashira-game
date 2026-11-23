@@ -2764,7 +2764,7 @@ setInterval(pubMember, 15000);
 function pubMember() { if (!isHost && P.team && NET.room) pub("m/" + pid, { k: P.team, n: P.name || "" }); }
 function joinTeam(k) { const ni = $("pname"); if (ni) { P.name = ni.value.trim().slice(0, 24); LS("dv-name", P.name); } P.team = k; LS("dv-team", k); setTimeout(pubMember, 50); writeTeam(k, { gid: ST?.gid || "", on: true, ...(TD[k]?.gid !== ST?.gid ? { ans: null, risk: null } : {}) }); Snd.go(); render(true); }
 function ensureGid() { const k = P.team; if (k && ST && TD[k]?.gid !== ST.gid) writeTeam(k, { gid: ST.gid, on: true, ans: null, risk: null }); }
-function pickAns(c) {
+function pickAns(c) { if (ST && calc().res[P.team]?.alive === false) return;
   const k = P.team, st = STEPS[ST?.si]; if (!k || !st || st.t !== "q" || ST.ph !== "q") return; const now = performance.now(); if (now < P.t0) return;
   if (gidOK(k) && TD[k].ans?.[ST.si]) return; const ms = Math.round(now - P.t0); if (ms > durOf(st) * 1000 + 600) return;
   ensureGid(); writeTeam(k, { ans: { [ST.si]: { c, ms } } }); Snd.tick();
@@ -2824,7 +2824,7 @@ function teamCard(t, C, mode) {
   const r = C.res[t.k], si = ST.si, st = STEPS[si] || {}, a = st.t === "q" ? ansOf(t.k, si) : null, rk = st.t === "risk" ? riskOf(t.k, st.zi) : "";
   const dev = gidOK(t.k) && TD[t.k].on, dead = r && !r.alive;
   let extra = "";
-  if (mode === "q" && st.t === "q") extra = `<div class="mini">${LET.map((L, c) => `<button type="button" data-a="man" data-k="${t.k}" data-c="${c}" class="${ST.man?.[si]?.[t.k] === c ? "sel" : ""}" aria-label="Ghi đáp án ${L} cho ${esc(t.n)}">${L}</button>`).join("")}</div>`;
+  if (mode === "q" && st.t === "q" && C.res[t.k]?.alive !== false) extra = `<div class="mini">${LET.map((L, c) => `<button type="button" data-a="man" data-k="${t.k}" data-c="${c}" class="${ST.man?.[si]?.[t.k] === c ? "sel" : ""}" aria-label="Ghi đáp án ${L} cho ${esc(t.n)}">${L}</button>`).join("")}</div>`;
   if (mode === "q" && st.t === "risk" && !dead) extra = `<div class="mini wide"><button type="button" data-a="mrisk" data-k="${t.k}" data-v="risky" class="${rk === "risky" ? "sel" : ""}">Mạo hiểm</button><button type="button" data-a="mrisk" data-k="${t.k}" data-v="safe" class="${rk === "safe" ? "sel" : ""}">Thận trọng</button></div>`;
   let badge = "";
   if (ST.ph === "q" && st.t === "q") badge = a ? `<span class="st ok">Đã trả lời</span>` : `<span class="st wait">Đang chọn…</span>`;
@@ -2848,7 +2848,7 @@ function hostView() {
     const J = window.DIVE_JOIN || {};
     stage = `<div class="lobby"><div class="lt"><div class="eyebrow">Nhiệm vụ của 6 đội Trụ</div><h1>Thám Hiểm <em>Cự Thần</em></h1>
       <p class="story">Một vị thần khổng lồ đã ngã xuống. Mỗi đội điều khiển một <b>thiết bị thăm dò</b>, lặn qua <b>8 khu vực</b> trong cơ thể thần để thu mẫu vật kiến thức về Squat.</p>
-      <ul class="rules"><li><b>3 lớp vỏ.</b> Trả lời sai hoặc hết giờ: mất 1 lớp.</li><li><b>Chết là hết.</b> Hết vỏ thì thiết bị nổ: đội dừng ghi điểm, chỉ còn góp dữ liệu cho nghiên cứu chung.</li><li><b>Mẫu vật hiếm</b> cuối mỗi khu vực: Mạo hiểm thì x2 điểm, đúng được vá 1 vỏ, sai mất 2 vỏ.</li><li><b>Trúng cả 4 mẫu thường</b> trong một khu vực: tự vá 1 vỏ.</li><li><b>30 phút oxy</b>, chỉ tính lúc trả lời. Cả lớp đúng từ 60% thì khu vực được giải mã.</li></ul></div>
+      <ul class="rules"><li><b>3 lớp vỏ.</b> Trả lời sai hoặc hết giờ: mất 1 lớp.</li><li><b>Chết là hết.</b> Hết vỏ thì thiết bị nổ: đội bị loại, không được trả lời tiếp.</li><li><b>Mẫu vật hiếm</b> cuối mỗi khu vực: Mạo hiểm thì x2 điểm, đúng được vá 1 vỏ, sai mất 2 vỏ.</li><li><b>Trúng cả 4 mẫu thường</b> trong một khu vực: tự vá 1 vỏ.</li><li><b>30 phút oxy</b>, chỉ tính lúc trả lời. Cả lớp đúng từ 60% thì khu vực được giải mã.</li></ul></div>
       <div class="join">${J.qr ? `<div class="qr">${J.qr}</div>` : ""}<div><div class="eyebrow">Quét mã để vào đội · nhiều người một đội được</div><div class="url">${esc(J.url || "")}</div><div class="code">Mã phòng <b>${esc(NET.room)}</b></div></div></div></div>`;
     ctl = `<button class="go" type="button" data-a="next">Bắt đầu lặn ▸</button>`;
     return [key, `${hostHead(C)}<main class="hm lob">${stage}<aside class="side"><div class="eyebrow">6 thiết bị · bấm “Thêm đội” nếu đội không có điện thoại</div><div class="teams">${TEAMS.map((t) => { const on = activeTeams().some((x) => x.k === t.k), dev = gidOK(t.k) && TD[t.k].on;
@@ -2910,12 +2910,14 @@ function phoneView() {
   else if (st.t === "brief") body = `<div class="pb"><div class="eyebrow">Khu ${st.zi + 1}/8 · nghe hồ sơ</div><h2>${z.kj} ${esc(z.name)}</h2><ol>${z.brief.map((b) => `<li>${b}</li>`).join("")}</ol></div>`;
   else if (st.t === "zone") body = `<div class="center"><div class="big">${z.kj}</div><h2>Khu ${esc(z.name)} hoàn tất</h2><p class="muted">${zoneLit(C, st.zi) ? "Cả lớp đã giải mã khu vực này." : "Khu vực này chưa được giải mã."}</p>${r.fixed[st.zi] ? `<p class="okt">Trúng cả 4 mẫu: thiết bị tự vá 1 lớp vỏ!</p>` : ""}</div>`;
   else if (st.t === "risk") {
-    if (dead) body = `<div class="center"><h2>Mẫu vật hiếm</h2><p class="muted">Thiết bị đã nổ nên không chọn. Câu sau vẫn trả lời để góp dữ liệu.</p></div>`;
+    if (dead) body = `<div class="center"><h2>Mẫu vật hiếm</h2><p class="muted">Thiết bị đã bị phá hủy. Đội bạn đã bị loại khỏi chuyến lặn.</p></div>`;
     else { const rk = riskOf(t.k, st.zi); key += ":" + rk; body = `<div class="pb"><div class="eyebrow">Khu ${st.zi + 1} · ${esc(z.name)}</div><h2>Mẫu vật hiếm! Chọn cách thu</h2><div class="rk"><button type="button" data-a="risk" data-v="risky" class="${rk === "risky" ? "sel" : ""}"><b>Mạo hiểm</b><span>Đúng x2 điểm, vá 1 vỏ · Sai mất 2 vỏ</span></button><button type="button" data-a="risk" data-v="safe" class="${rk === "safe" ? "sel" : ""}"><b>Thận trọng</b><span>Điểm thường · Sai mất 1 vỏ</span></button></div><div class="ptm"><span id="tn"></span></div></div>`; }
   } else if (st.t === "q") {
     const rev = ST.ph === "rev"; key += ":" + (mine ? mine.c : "-");
-    if (rev) { const L = r.last || {}; body = `<div class="center"><div class="big ${L.ok ? "okc" : "noc"}">${L.ok ? "✓" : "✕"}</div><h2>${L.ok ? (dead && !L.dead ? "Đúng · đã góp dữ liệu" : "Thu mẫu thành công") : L.ans == null ? "Hết giờ" : "Sai mẫu"}</h2><p class="muted">${L.ok && !L.ghost ? "+" + L.pts + " điểm" + (L.dsh > 0 ? " · vá 1 lớp vỏ" : "") : L.dsh < 0 ? L.dsh + " lớp vỏ" : ""}</p>${L.dead ? `<p class="noc">Thiết bị bị phá hủy! Chết là hết: đội vẫn trả lời để góp dữ liệu nghiên cứu.</p>` : ""}<div class="ans">Đáp án: ${SHAPE[st.a]} ${LET[st.a]} · ${esc(st.o[st.a])}</div><p class="why">${esc(st.why)}</p></div>`; }
-    else body = `<div class="pq">${dead ? `<div class="ghostb">Thiết bị đã nổ · vẫn trả lời để góp dữ liệu</div>` : ""}<div class="eyebrow">${st.rare ? "Mẫu vật hiếm" : "Khu " + (st.zi + 1) + " · " + esc(z.name)} · <span id="tn"></span></div><h2>${esc(st.text)}</h2><div class="pbtn">${st.o.map((o, c) => `<button type="button" data-a="pick" data-c="${c}" class="c${c} ${mine ? (mine.c === c ? "sel" : "dimb") : ""}" ${mine ? "disabled" : ""}><span class="ol">${SHAPE[c]} ${LET[c]}</span><span>${esc(o)}</span></button>`).join("")}</div>${mine ? `<p class="okt">Đội đã chốt đáp án ${LET[mine.c]}. Chờ cả lớp…</p>` : `<p class="muted" style="font-size:13px;margin-top:10px">Bàn với đồng đội trước · người bấm đầu tiên chốt cho cả đội</p>`}</div>`;
+    if (rev && dead && !(r.last || {}).dead) body = `<div class="center"><div class="big noc">✕</div><h2>Đội bạn đã bị loại</h2><div class="ans">Đáp án: ${SHAPE[st.a]} ${LET[st.a]} · ${esc(st.o[st.a])}</div><p class="why">${esc(st.why)}</p></div>`;
+    else if (rev) { const L = r.last || {}; body = `<div class="center"><div class="big ${L.ok ? "okc" : "noc"}">${L.ok ? "✓" : "✕"}</div><h2>${L.ok ? (dead && !L.dead ? "Đúng · đã góp dữ liệu" : "Thu mẫu thành công") : L.ans == null ? "Hết giờ" : "Sai mẫu"}</h2><p class="muted">${L.ok && !L.ghost ? "+" + L.pts + " điểm" + (L.dsh > 0 ? " · vá 1 lớp vỏ" : "") : L.dsh < 0 ? L.dsh + " lớp vỏ" : ""}</p>${L.dead ? `<p class="noc">Thiết bị bị phá hủy! Chết là hết: đội bạn đã bị loại khỏi chuyến lặn.</p>` : ""}<div class="ans">Đáp án: ${SHAPE[st.a]} ${LET[st.a]} · ${esc(st.o[st.a])}</div><p class="why">${esc(st.why)}</p></div>`; }
+    else if (dead) body = `<div class="center"><div class="big noc">✕</div><h2>Thiết bị đã bị phá hủy</h2><p class="muted">Đội bạn đã bị loại khỏi chuyến lặn. Hãy theo dõi màn hình lớn cùng cả lớp.</p></div>`;
+    else body = `<div class="pq"><div class="eyebrow">${st.rare ? "Mẫu vật hiếm" : "Khu " + (st.zi + 1) + " · " + esc(z.name)} · <span id="tn"></span></div><h2>${esc(st.text)}</h2><div class="pbtn">${st.o.map((o, c) => `<button type="button" data-a="pick" data-c="${c}" class="c${c} ${mine ? (mine.c === c ? "sel" : "dimb") : ""}" ${mine ? "disabled" : ""}><span class="ol">${SHAPE[c]} ${LET[c]}</span><span>${esc(o)}</span></button>`).join("")}</div>${mine ? `<p class="okt">Đội đã chốt đáp án ${LET[mine.c]}. Chờ cả lớp…</p>` : `<p class="muted" style="font-size:13px;margin-top:10px">Bàn với đồng đội trước · người bấm đầu tiên chốt cho cả đội</p>`}</div>`;
   }
   return [key, head + `<main class="pm">${body}</main>` + foot];
 }
@@ -2941,10 +2943,10 @@ function tick() {
   if (now < t0) { const s = Math.ceil((t0 - now) / 1000); if (tn) tn.textContent = s; if (fg) fg.style.strokeDashoffset = 0; if (hint) hint.textContent = "Sẵn sàng…"; return; }
   const rem = Math.max(0, d - (now - t0) / 1000);
   if (tn) tn.textContent = Math.ceil(rem) + (isHost ? "" : "s"); if (fg) { fg.style.strokeDashoffset = (276.5 * (1 - rem / d)).toFixed(1); fg.classList.toggle("hot", rem <= 5); }
-  if (hint) { if (isHost) { const a2 = activeTeams(), n2 = a2.filter((t) => ansOf(t.k, ST.si)).length; hint.innerHTML = `Đã khóa <b>${n2}/${a2.length}</b> đội · chọn đáp án trên điện thoại`; } else hint.textContent = "Các đội chọn đáp án trên điện thoại"; }
+  if (hint) { if (isHost) { const a2 = activeTeams().filter((t) => calc().res[t.k]?.alive !== false), n2 = a2.filter((t) => ansOf(t.k, ST.si)).length; hint.innerHTML = `Đã khóa <b>${n2}/${a2.length}</b> đội · chọn đáp án trên điện thoại`; } else hint.textContent = "Các đội chọn đáp án trên điện thoại"; }
   if (isHost) {
     const act = activeTeams(), C = calc();
-    const need = st.t === "risk" ? act.filter((t) => C.res[t.k]?.alive) : act;
+    const need = act.filter((t) => C.res[t.k]?.alive);
     const all = need.length > 0 && need.every((t) => (st.t === "risk" ? riskOf(t.k, st.zi) : ansOf(t.k, ST.si)));
     const k = ST.gid + ":" + ST.si;
     if ((rem <= 0 || all) && H.auto !== k) { H.auto = k; setTimeout(() => { if (ST.ph === "q" && ST.gid + ":" + ST.si === k) (st.t === "risk" ? next() : reveal()); }, all && rem > 0 ? 700 : 900); }
@@ -3329,7 +3331,7 @@ body.phone #app.pwait .pbtn{opacity:.18;pointer-events:none;filter:grayscale(1)}
     setTimeout(() => { if (good) A.ok(); if (badN) { A.bad(); shake(); } }, 200);
     await S(1300);
     for (const [t, b] of deaths) { burst(b.left + b.width / 2, b.top + b.height / 2, 90, ["#ff7a3c", "#f15b5c", "#ffd36b", "#fff"], { sp: 13, life: 80, g: 0.12 }); await lost(t); } }
-  function phoneReveal(C) { const r = C.res[P.team], L2 = r?.last; if (!L2) return;
+  function phoneReveal(C) { const r = C.res[P.team], L2 = r?.last; if (!L2 || L2.ghost) return;
     if (L2.dead) { buzz([300, 120, 300, 120, 500]); A.stat(1); A.hit(); shake(true); cine("dead", `<div class="lost" style="--tc:${TK[P.team].c}"><div class="k">${TK[P.team].kj}</div><h2>Mất tín hiệu</h2><p>Thiết bị đã bị phá hủy</p></div>`, 3000); return; }
     if (L2.ok) { A.ok(); flash("rgba(95,211,141,.35)"); burst(innerWidth / 2, innerHeight * 0.3, 40, ["#5fd38d", "#e7b54c", "#fff2c2"], { sp: 8, life: 60, g: 0.1 }); }
     else { A.bad(); buzz(220); flash("rgba(241,91,92,.45)"); shake(); } }
@@ -3610,7 +3612,7 @@ body.phone #app.pwait .pbtn{opacity:.18;pointer-events:none;filter:grayscale(1)}
   function panelTick() { if (!SCN.pn.querySelector(".ptn")) return; const tn = SCN.pn.querySelector(".ptn"), tb = SCN.pn.querySelector(".ptb"), tm = SCN.pn.querySelector(".ptm"), lk = SCN.pn.querySelector(".plk");
     if (ST.ph === "q") { const now = performance.now(), d = durOf(SCN.st); if (now < H.t0) { tn.textContent = Math.ceil((H.t0 - now) / 1000); tb.style.width = "100%"; tm.classList.remove("hot"); }
       else { const rem = Math.max(0, d - (now - H.t0) / 1000); tn.textContent = Math.ceil(rem); tb.style.width = (rem / d) * 100 + "%"; tm.classList.toggle("hot", rem <= 5); SCN.angry = rem <= 5; }
-      const a2 = activeTeams(), n2 = a2.filter((t) => ansOf(t.k, ST.si)).length; if (n2 !== SCN.lockN) { SCN.lockN = n2; lk.innerHTML = `Đã khóa <b>${n2}/${a2.length}</b> đội`; } }
+      const CC = calc(), a2 = activeTeams().filter((t) => CC.res[t.k]?.alive !== false), n2 = a2.filter((t) => ansOf(t.k, ST.si)).length; if (n2 !== SCN.lockN) { SCN.lockN = n2; lk.innerHTML = `Đã khóa <b>${n2}/${a2.length}</b> đội`; } }
     else if (tm.style.visibility !== "hidden") tm.style.visibility = "hidden"; }
   function panelRev(final) { const st = SCN.st, si = SCN.si; SCN.pn.classList.toggle("anl", !final); SCN.pn.classList.toggle("rv", !!final);
     SCN.pn.querySelectorAll(".po").forEach((el) => { const c = Number(el.dataset.c), ts = activeTeams().filter((t) => ansOf(t.k, si)?.c === c), pk = el.querySelector(".pk");
